@@ -77,12 +77,12 @@ summary(monthly$npeak[monthly$obs==1 & monthly$type=="plague mortality"])
 summary(weekly$npeak[weekly$obs==1 & weekly$type=="plague mortality"])
 
 
-# Fig. 1 ==================================================================
+# Fig. S1 ==================================================================
 mapdata <- rawdata[rawdata$peakobs==1,c("peakid", "place", "country", "lat", "lon", "type")]
 mapdata <- mapdata %>% dplyr::group_by(lat, lon, type) %>% dplyr::summarise(n=n(), place=place[1], country=country[1])
 map <- map_data("world")
 
-fig1 <- ggplot() + 
+figS1 <- ggplot() + 
         geom_polygon(data=map, aes(x=long, y=lat, group=group), fill='white', color="gray82") + 
         #coord_fixed(1.3) +
         coord_cartesian(xlim=c(min(mapdata$lon)-3, max(mapdata$lon)+3),
@@ -95,9 +95,9 @@ fig1 <- ggplot() +
         xlab("Longitude") + ylab("Latitude")  +
         theme(panel.border = element_rect(colour = "black", fill=NA, size=0.5))
       
-fig1
+figS1
 
-tiff(file = paste0("output/fig1.tif"),
+tiff(file = paste0("output/figS1.tif"),
        width = 2500,
        height = 2000,
        res = 300)
@@ -105,7 +105,7 @@ fig1
 dev.off()
 
 
-# Fig. S1  ==================================================================
+# Fig. S2  ==================================================================
 # all epi curves
 rawdata <- rawdata %>% dplyr::group_by(peakid) %>% 
   dplyr::mutate(peaklabel=ifelse(year[1]==year[n()],
@@ -119,36 +119,36 @@ rawdata$dateplot <- as.Date(rawdata$dateplot, format="%Y-%m-%d", origin=as.Date(
   
 peaklabels <- sort(unique(rawdata$peaklabel))
 
-figS1 <- vector("list", length(peaklabels)) 
+figS2 <- vector("list", length(peaklabels)) 
 for (i in peaklabels) {
   subset <- rawdata[rawdata$peaklabel==i,]
   color <- ifelse(subset$type[1]=="plague mortality", "coral2", "cyan3")
     plot <- ggplot(subset) + geom_bar(aes(x=dateplot, y=n), fill=color, stat="identity") + 
       theme_minimal() + ggtitle(i) + ylab("mortality") + xlab(NULL) +  scale_x_date()
-    figS1[[which(peaklabels==i)]] <- ggplotGrob(plot)
+    figS2[[which(peaklabels==i)]] <- ggplotGrob(plot)
 }
 
 
-tiff(file = paste0("output/figS1.tif"),
+tiff(file = paste0("output/figS2.tif"),
      width = 6000,
      height = 20000,
      res = 300)
-grid.arrange(arrangeGrob(grobs=figS1, x=unit(0, "npc"), y=unit(1, "npc"), just=c("left", "top"), 
+grid.arrange(arrangeGrob(grobs=figS2, x=unit(0, "npc"), y=unit(1, "npc"), just=c("left", "top"), 
                          gp=gpar(col="black",fontsize=size), ncol=4))
 dev.off()
 
-pdf(file = "output/figS1.pdf",
+pdf(file = "output/figS2.pdf",
      width = 20,
      height = 100)
-grid.arrange(arrangeGrob(grobs=figS1, x=unit(0, "npc"), y=unit(1, "npc"), just=c("left", "top"), 
+grid.arrange(arrangeGrob(grobs=figS2, x=unit(0, "npc"), y=unit(1, "npc"), just=c("left", "top"), 
                          gp=gpar(col="black",fontsize=size), ncol=4))
 dev.off()
 
 
-ggsave("output/figS1.pdf", 
-       grid.arrange(top=textGrob("\n Fig. S1. Epidemiological curves from plague mortality data (red bars) and all-cause mortality data (blue bars). \n", x=0, hjust=0, 
+ggsave("output/figS2.pdf", 
+       grid.arrange(top=textGrob("\n Fig. S2. Epidemiological curves from plague mortality data (red bars) and all-cause mortality data (blue bars). \n", x=0, hjust=0, 
                                                      gp=gpar(fontsize=20, font=1)), 
-                                        arrangeGrob(grobs=figS1, ncol=4)), 
+                                        arrangeGrob(grobs=figS2, ncol=4)), 
        width=20, height = 100, limitsize = F)
 
 
@@ -165,9 +165,9 @@ data0$month <- factor(data0$month, labels=month.abb[1:12])
 
 places <- sort(unique(data0$place))
 
-# Fig. 2  ==================================================================
+# Fig. 1  ==================================================================
 
-fig2 <- vector("list", length(unique(data0$place)))
+fig1 <- vector("list", length(unique(data0$place)))
 ylims <- c(350, 2000, 1000, 2000, 250)
 names(ylims) <- places
 
@@ -179,13 +179,13 @@ for (i in places) {
                                   coord_cartesian(ylim=c(0, ylims[[i]])) +
                                   xlab(NULL) + ylab("monthly plague deaths")
   
-  fig2[[which(places==i)]] <- ggplotGrob(plot)
+  fig1[[which(places==i)]] <- ggplotGrob(plot)
 }
-tiff(file = paste0("output/fig2.tif"),
+tiff(file = paste0("output/fig1.tif"),
      width = 3000,
      height = 3000,
      res = 300)
-grid.arrange(arrangeGrob(grobs=fig2, ncol=2))
+grid.arrange(arrangeGrob(grobs=fig1, ncol=2))
 dev.off()
 
 
@@ -301,8 +301,8 @@ model1_1 <- geeglm(woy ~ tmean + precmean, id=place, data=data1, family="gaussia
 r2marg(model1_1)
 
 
-# Fig. 3  ==================================================================
-fig3a <- ggplot(model1pred) + 
+# Fig. 2  ==================================================================
+fig2a <- ggplot(model1pred) + 
   theme_light() +
   geom_point(aes(x=tmean, y=woy)) + 
   geom_line(aes(x=tmean, y=fit), color="gray20") +
@@ -311,9 +311,9 @@ fig3a <- ggplot(model1pred) +
         axis.ticks.x=element_blank()) + 
   ylab("calendar week of epidemic peak") + xlab("annual mean temperature (°C)") 
 
-fig3a
+fig2a
 
-fig3b <- ggplot(model2pred) +
+fig2b <- ggplot(model2pred) +
   theme_light() +
   geom_point(aes(x=precmean, y=woy)) + 
   geom_line(aes(x=precmean, y=fit), color="gray20") +
@@ -322,9 +322,9 @@ fig3b <- ggplot(model2pred) +
   theme(panel.grid.minor.x = element_blank(),
         axis.ticks.x=element_blank())  + labs(size="Peak size") +
   ylab("calendar week of epidemic peak") + xlab("annual average precipitation (mm)") 
-fig3b
+fig2b
 
-fig3c <- ggplot(model3pred) +
+fig2c <- ggplot(model3pred) +
   theme_light() +
   geom_point(aes(x=lat, y=woy)) + 
   geom_line(aes(x=lat, y=fit), color="gray20") +
@@ -332,17 +332,17 @@ fig3c <- ggplot(model3pred) +
   theme(panel.grid.minor.x = element_blank(),
         axis.ticks.x=element_blank())  + labs(size="Peak size") +
   ylab("calendar week of epidemic peak") + xlab("latitude (° North)") 
-fig3c
+fig2c
 
-tiff(file = paste0("output/fig3.tif"),
+tiff(file = paste0("output/fig2.tif"),
      width = 3000,
      height = 1200,
      res = 300)
-grid.arrange(arrangeGrob(fig3a, top=textGrob("A", x=unit(0, "npc"), y=unit(0, "npc"), 
+grid.arrange(arrangeGrob(fig2a, top=textGrob("A", x=unit(0, "npc"), y=unit(0, "npc"), 
                                              just=c("left", "top"), gp=gpar(col="black", fontsize=fignosize))), 
-             arrangeGrob(fig3b, top=textGrob("B", x=unit(0, "npc"), y=unit(0, "npc"), 
+             arrangeGrob(fig2b, top=textGrob("B", x=unit(0, "npc"), y=unit(0, "npc"), 
                                              just=c("left", "top"), gp=gpar(col="black",fontsize=fignosize))),
-             arrangeGrob(fig3c, top=textGrob("C", x=unit(0, "npc"), y=unit(0, "npc"), 
+             arrangeGrob(fig2c, top=textGrob("C", x=unit(0, "npc"), y=unit(0, "npc"), 
                                              just=c("left", "top"), gp=gpar(col="black",fontsize=fignosize))),
              
              ncol=3)
@@ -350,10 +350,10 @@ dev.off()
 
 
 
-# Fig. S2  ==================================================================
+# Fig. S3  ==================================================================
 
 # Ridge plot: weekly by latitude
-figS2 <- ggplot(weekly[weekly$type=="plague mortality",], aes(x = woy, y = lat, group=as.factor(peakid), fill=as.factor(place))) + 
+figS3 <- ggplot(weekly[weekly$type=="plague mortality",], aes(x = woy, y = lat, group=as.factor(peakid), fill=as.factor(place))) + 
               geom_density_ridges(aes(height=nnorm), stat="identity", alpha=0.5, color=NA) +
               scale_x_continuous(expand = c(0,0)) + 
               theme_ridges(center_axis_labels = T, font_size = 10) + 
@@ -361,13 +361,13 @@ figS2 <- ggplot(weekly[weekly$type=="plague mortality",], aes(x = woy, y = lat, 
               ylab("Latitude (° N)") + labs(fill="Place") + guides(fill=guide_legend(ncol=1)) +
               coord_cartesian(clip = "off")
         
-figS2
+figS3
 
-tiff(file = paste0("output/figS2.tif"),
+tiff(file = paste0("output/figS3.tif"),
      width = 2500,
      height = 2500,
      res = 300)
-figS2
+figS3
 dev.off()
 
 
@@ -418,8 +418,8 @@ r2marg(model7)
 
 
 
-# Fig. S3  ==================================================================
-figS3a <- ggplot(model4pred) +
+# Fig. S4  ==================================================================
+figS4a <- ggplot(model4pred) +
   theme_light() + 
   geom_point(aes(x=tmean, y=month)) + 
   geom_line(aes(x=tmean, y=fit), color="gray20") +
@@ -428,9 +428,9 @@ figS3a <- ggplot(model4pred) +
         axis.ticks.x=element_blank())  + labs(size="Peak size") +
   ylab("Peak month of plague deaths") + xlab("annual mean temperature (°C)") +
   scale_y_continuous(breaks=c(1:12), labels=month.abb[1:12])
-figS3a
+figS4a
 
-figS3b <- ggplot(model5pred) +
+figS4b <- ggplot(model5pred) +
   theme_light() +
   geom_point(aes(x=tmean, y=woy)) + 
   geom_line(aes(x=tmean, y=fit), color="gray20") +
@@ -438,10 +438,10 @@ figS3b <- ggplot(model5pred) +
   theme(panel.grid.minor.x = element_blank(),
         axis.ticks.x=element_blank())  + labs(size="Peak size") +
   ylab("Peak week of plague and all-cause deaths") + xlab("annual mean temperature (°C)") 
-figS3b
+figS4b
 
 
-figS3c <- ggplot(model6pred) +
+figS4c <- ggplot(model6pred) +
   theme_light() + 
   geom_point(aes(x=tmean, y=month)) + 
   geom_line(aes(x=tmean, y=fit), color="gray20") +
@@ -450,9 +450,9 @@ figS3c <- ggplot(model6pred) +
         axis.ticks.x=element_blank())  + labs(size="Peak size") +
   ylab("Peak month of plague and all-cause deaths") + xlab("annual mean temperature (°C)") +
   scale_y_continuous(breaks=c(1:12), labels=month.abb[1:12])
-figS3c
+figS4c
 
-figS3d <- ggplot(model7pred) +
+figS4d <- ggplot(model7pred) +
   theme_light() +
   geom_point(aes(x=tmean, y=woy)) + 
   geom_line(aes(x=tmean, y=fit), color="gray20") +
@@ -460,20 +460,20 @@ figS3d <- ggplot(model7pred) +
   theme(panel.grid.minor.x = element_blank(),
         axis.ticks.x=element_blank())  + labs(size="Peak size") +
   ylab("Peak week of plague deaths (large outbreaks only)") + xlab("annual mean temperature (°C)") 
-figS3d
+figS4d
 
 
-tiff(file = paste0("output/figS3.tif"),
+tiff(file = paste0("output/figS4.tif"),
      width = 3000,
      height = 3000,
      res = 300)
-grid.arrange(arrangeGrob(figS3a, top=textGrob("A", x=unit(0, "npc"), y=unit(0, "npc"), 
+grid.arrange(arrangeGrob(figS4a, top=textGrob("A", x=unit(0, "npc"), y=unit(0, "npc"), 
                                              just=c("left", "top"), gp=gpar(col="black", fontsize=fignosize))), 
-             arrangeGrob(figS3b,top=textGrob("B", x=unit(0, "npc"), y=unit(0, "npc"), 
+             arrangeGrob(figS4b,top=textGrob("B", x=unit(0, "npc"), y=unit(0, "npc"), 
                                             just=c("left", "top"), gp=gpar(col="black",fontsize=fignosize))),
-             arrangeGrob(figS3c,top=textGrob("C", x=unit(0, "npc"), y=unit(0, "npc"), 
+             arrangeGrob(figS4c,top=textGrob("C", x=unit(0, "npc"), y=unit(0, "npc"), 
                                             just=c("left", "top"), gp=gpar(col="black",fontsize=fignosize))),
-             arrangeGrob(figS3d,top=textGrob("D", x=unit(0, "npc"), y=unit(0, "npc"), 
+             arrangeGrob(figS4d,top=textGrob("D", x=unit(0, "npc"), y=unit(0, "npc"), 
                                             just=c("left", "top"), gp=gpar(col="black",fontsize=fignosize))),
              
              
@@ -595,11 +595,11 @@ saveRDS(data5, "output/data5.rds")
 
 
 
-# Fig. S4  ==================================================================
+# Fig. S5  ==================================================================
 
 # Plot time-varying growth rate for each epidemic
 peakids <- sort(unique(data5$peakid))
-figS4 <- vector("list", length(peakids))
+figS5 <- vector("list", length(peakids))
 for (i in 1:length(peakids)) {
   
   subset <- data5[data5$peakid==peakids[i],]
@@ -620,25 +620,25 @@ for (i in 1:length(peakids)) {
           axis.text.y.right = element_text(color="red")) +
     ggtitle(paste(unique(subset$place), year, sep=" "))
   
-  figS4[[i]] <- ggplotGrob(plot)
+  figS5[[i]] <- ggplotGrob(plot)
 }
 
 
-tiff(file = paste0("output/figS4.tif"),
+tiff(file = paste0("output/figS5.tif"),
      width = 4400,
      height = 9000,
      res = 300)
-grid.arrange(arrangeGrob(grobs=figS4, x=unit(0, "npc"), y=unit(1, "npc"), just=c("left", "top"), 
+grid.arrange(arrangeGrob(grobs=figS5, x=unit(0, "npc"), y=unit(1, "npc"), just=c("left", "top"), 
                          gp=gpar(col="black",fontsize=size), ncol=4))
 
 
 dev.off()
 
-ggsave("output/figS4.pdf", 
-       grid.arrange(top=textGrob("\n Fig. S4. Epidemiological curves and the corresponding time-varying growth rates. The dark grey bars represent the incident plague mortality, the light grey \n bars represent the incident plague cases calculated from the mortality data. The red line and pink ribbon are the mean estimate and 95% CI for the time-varying \n epidemic growth rate calculate based on the incident case data (right y-axis). Values below 0 indicate no growth (i.e. a decline of the epidemic). The values on \n the right y-axis represent the daily growth rate. \n", 
+ggsave("output/figS5.pdf", 
+       grid.arrange(top=textGrob("\n Fig. S5. Epidemiological curves and the corresponding time-varying growth rates. The dark grey bars represent the incident plague mortality, the light grey \n bars represent the incident plague cases calculated from the mortality data. The red line and pink ribbon are the mean estimate and 95% CI for the time-varying \n epidemic growth rate calculate based on the incident case data (right y-axis). Values below 0 indicate no growth (i.e. a decline of the epidemic). The values on \n the right y-axis represent the daily growth rate. \n", 
                                  x=0, hjust=0, 
                                  gp=gpar(fontsize=20, font=1)), 
-                    arrangeGrob(grobs=figS4, ncol=4)), 
+                    arrangeGrob(grobs=figS5, ncol=4)), 
        width=20, height = 50, limitsize = F)
 
 
@@ -722,19 +722,19 @@ tempmax95CI <- max(model9pred$temp[model9pred$up95CI>0],na.rm=T)
 tempmax95CI
 
 
-# Fig. 4  ==================================================================
+# Fig. 3  ==================================================================
 
 # all data
 
 # Histogram
-fig4a <- ggplot() +  theme_light() + #theme(panel.grid = element_blank()) +
+fig3a <- ggplot() +  theme_light() + #theme(panel.grid = element_blank()) +
   geom_histogram(data=data5[data5$r>0,], aes(x=temp, y=..count.., fill="> 0"), bins=60) +
   geom_histogram(data=data5[data5$r<=0,], aes(x=temp, y=-..count.. , fill="<=0"), bins=60) +
   ylab("frequency") + xlab("temperature (°C)") + scale_fill_hue("Growth rates")
-fig4a
+fig3a
 
 # Fit
-fig4b <- ggplot(model8pred, aes(x=temp, y=r)) +
+fig3b <- ggplot(model8pred, aes(x=temp, y=r)) +
   theme_light() +
   geom_point(aes(color=place)) + 
   #stat_smooth(method="gam", formula=y ~ s(x, bs=smoother), fill="grey50", color="grey40") +
@@ -742,20 +742,20 @@ fig4b <- ggplot(model8pred, aes(x=temp, y=r)) +
   geom_ribbon(aes(x=temp, ymin=low95CI, ymax=up95CI), fill="red", alpha=0.3) +
   ylab("daily epidemic growth rate") + xlab("temperature (°C)") +
   geom_hline(aes(yintercept=0))
-fig4b
+fig3b
 
 
 # Using only large outbreaks
 
 # Histogram
-fig4c <- ggplot() +  theme_light() + #theme(panel.grid = element_blank()) +
+fig3c <- ggplot() +  theme_light() + #theme(panel.grid = element_blank()) +
   geom_histogram(data=data5subset[data5subset$r>0,], aes(x=temp, y=..count.., fill="> 0"), bins=60) +
   geom_histogram(data=data5subset[data5subset$r<=0,], aes(x=temp, y=-..count.. , fill="<=0"), bins=60) +
   ylab("frequency") + xlab("temperature (°C)") + scale_fill_hue("Growth rates")
-fig4c
+fig3c
 
 # Fit
-fig4d <- ggplot(model9pred, aes(x=temp, y=r)) +
+fig3d <- ggplot(model9pred, aes(x=temp, y=r)) +
   theme_light() +
   geom_point(aes(color=place)) + 
   #stat_smooth(method="gam", formula=y ~ s(x, bs=smoother), fill="grey50", color="grey40") +
@@ -763,22 +763,22 @@ fig4d <- ggplot(model9pred, aes(x=temp, y=r)) +
   geom_ribbon(aes(x=temp, ymin=low95CI, ymax=up95CI), fill="red", alpha=0.3) +
   ylab("daily epidemic growth rate") + xlab("temperature (°C)") +
   geom_hline(aes(yintercept=0))
-fig4d
+fig3d
 
 
 
 # combine plot
-tiff(file = paste0("output/fig4.tif"),
+tiff(file = paste0("output/fig3.tif"),
      width = 4000,
      height = 3000,
      res = 300)
-grid.arrange(arrangeGrob(fig4a, top=textGrob("A", x=unit(0, "npc"), y=unit(0, "npc"), 
+grid.arrange(arrangeGrob(fig3a, top=textGrob("A", x=unit(0, "npc"), y=unit(0, "npc"), 
                                              just=c("left", "top"), gp=gpar(col="black",fontsize=fignosize))), 
-             arrangeGrob(fig4b, top=textGrob("B", x=unit(0, "npc"), y=unit(0, "npc"), 
+             arrangeGrob(fig3b, top=textGrob("B", x=unit(0, "npc"), y=unit(0, "npc"), 
                                              just=c("left", "top"), gp=gpar(col="black", fontsize=fignosize))),
-             arrangeGrob(fig4c, top=textGrob("C", x=unit(0, "npc"), y=unit(0, "npc"), 
+             arrangeGrob(fig3c, top=textGrob("C", x=unit(0, "npc"), y=unit(0, "npc"), 
                                              just=c("left", "top"), gp=gpar(col="black",fontsize=fignosize))),
-             arrangeGrob(fig4d, top=textGrob("D", x=unit(0, "npc"), y=unit(0, "npc"), 
+             arrangeGrob(fig3d, top=textGrob("D", x=unit(0, "npc"), y=unit(0, "npc"), 
                                              just=c("left", "top"), gp=gpar(col="black",fontsize=fignosize))),
              
              ncol=2)
@@ -818,9 +818,9 @@ model10precpred$up95CI <- model10precpred$fit + 1.96*model10precpred$se.fit
 
 
 
-# Fig. S5  ==================================================================
+# Fig. S6  ==================================================================
 
-figS5a <- ggplot(model10pred, aes(x=temp, y=r)) +
+figS6a <- ggplot(model10pred, aes(x=temp, y=r)) +
   theme_light() +
   geom_point(aes(color=place)) + 
   #stat_smooth(method="gam", formula=y ~ s(x, bs=smoother), fill="grey50", color="grey40") +
@@ -828,10 +828,10 @@ figS5a <- ggplot(model10pred, aes(x=temp, y=r)) +
   geom_ribbon(aes(x=temp, ymin=low95CI, ymax=up95CI), fill="red", alpha=0.3) +
   ylab("daily epidemic growth rate") + xlab("temperature (°C)") +
   geom_hline(aes(yintercept=0))
-figS5a
+figS6a
 
 
-figS5b <- ggplot(model8precpred, aes(x=prec, y=r)) +
+figS6b <- ggplot(model8precpred, aes(x=prec, y=r)) +
   theme_light() +
   geom_point(aes(color=place)) + 
   #stat_smooth(method="gam", formula=y ~ s(x, bs=smoother), fill="grey50", color="grey40") +
@@ -839,9 +839,9 @@ figS5b <- ggplot(model8precpred, aes(x=prec, y=r)) +
   geom_ribbon(aes(x=prec, ymin=low95CI, ymax=up95CI), fill="red", alpha=0.3) +
   ylab("daily epidemic growth rate") + xlab("Precipitation (mm)") +
   geom_hline(aes(yintercept=0))
-figS5b
+figS6b
 
-figS5c <- ggplot(model10precpred, aes(x=prec, y=r)) +
+figS6c <- ggplot(model10precpred, aes(x=prec, y=r)) +
   theme_light() +
   geom_point(aes(color=place)) + 
   #stat_smooth(method="gam", formula=y ~ s(x, bs=smoother), fill="grey50", color="grey40") +
@@ -849,152 +849,22 @@ figS5c <- ggplot(model10precpred, aes(x=prec, y=r)) +
   geom_ribbon(aes(x=prec, ymin=low95CI, ymax=up95CI), fill="red", alpha=0.3) +
   ylab("daily epidemic growth rate") + xlab("Precipitation (mm)") +
   geom_hline(aes(yintercept=0))
-figS5c
+figS6c
 
 # combine plot
-tiff(file = paste0("output/figS5.tif"),
+tiff(file = paste0("output/figS6.tif"),
      width = 5000,
      height = 1500,
      res = 300)
-grid.arrange(arrangeGrob(figS5a, top=textGrob("A", x=unit(0, "npc"), y=unit(0, "npc"), 
+grid.arrange(arrangeGrob(figS6a, top=textGrob("A", x=unit(0, "npc"), y=unit(0, "npc"), 
                                              just=c("left", "top"), gp=gpar(col="black",fontsize=fignosize))), 
-             arrangeGrob(figS5b, top=textGrob("B", x=unit(0, "npc"), y=unit(0, "npc"), 
+             arrangeGrob(figS6b, top=textGrob("B", x=unit(0, "npc"), y=unit(0, "npc"), 
                                              just=c("left", "top"), gp=gpar(col="black", fontsize=fignosize))),
-             arrangeGrob(figS5c, top=textGrob("C", x=unit(0, "npc"), y=unit(0, "npc"), 
+             arrangeGrob(figS6c, top=textGrob("C", x=unit(0, "npc"), y=unit(0, "npc"), 
                                               just=c("left", "top"), gp=gpar(col="black", fontsize=fignosize))),
              ncol=3)
 dev.off()
 
-
-
-# Predict the growth seasons for each place using the results from model 9
-peakmonthly <- monthly %>% dplyr::group_by(peakid) %>% 
-  dplyr::filter(peak==1) %>% 
-  dplyr::select(c("id", "peakid", "place","lat", "month"))
-peakweekly <- weekly %>% dplyr::group_by(peakid) %>% 
-  dplyr::filter(peak==1) %>% 
-  dplyr::select(c("id", "peakid", "place","lat", "date"))
-data6 <- merge(peakmonthly, peakweekly, by=c("id", "peakid", "place", "lat"), all=T)
-data6$day <- as.numeric(ifelse(is.na(data6$date), 15, format(data6$date, format="%d")))
-data6$month <- as.numeric(ifelse(is.na(data6$date), data6$month, format(data6$date, format="%m")))
-data6$doy <- julian(as.Date(paste("2001", data6$month, data6$day, sep="-"), format="%Y-%m-%d"), 
-                        origin=as.Date("2001-01-01")) + 1
-data6$peak <- ifelse(is.na(data6$peakid), 0, 1)
-data6 <- data6 %>% dplyr::group_by(place, doy) %>% dplyr::summarise(lat=lat[1], peak=max(peak))
-data6$doy <- data6$doy - 7 # adjust doy to peak of epidemic instead of peak of mortality
-data6 <- merge(data6, climate$temppred, by=c("place", "doy"), all=T)
-data6 <- data6 %>% dplyr::group_by(place) %>% dplyr::mutate(lat=max(lat, na.rm=T))
-data6$growthphase <- ifelse(data6$temp<=tempmax95CI & data6$temp>=tempmin95CI,1,0)
-data6$growthphase <- factor(as.character(data6$growthphase), labels=c("negative", "positive"), ordered=T)
-
-# Assess the time lags between peaks and time to end of current phase (lead) and time since end of last phase (lag)
-data6 <- data6[order(data6$place, data6$doy),]
-data6$phaseno <- NA # make dummy var for phase change
-count <- 1
-for (i in 2:nrow(data6)) {
-  if (data6$growthphase[i-1]!=data6$growthphase[i]) {
-    data6$phaseno[i] <- count + 1
-    count <- count + 1
-    
-  } else {
-    data6$phaseno[i] <- count
-  }
-}
-
-# calculate time lead/lag to end of positive phase
-data6$phaseno <- ifelse(is.na(data6$phaseno), 1, data6$phaseno)
-data6 <- data6 %>% dplyr::group_by(place, phaseno) %>% 
-                    dplyr::arrange(doy) %>% 
-                    dplyr::mutate(lag=1:n()) %>% 
-                    dplyr::arrange(-doy) %>% 
-                    dplyr::mutate(lead=1:n())
-data6$lead <- data6$lead - 1
-data6 <- data6[order(data6$place, data6$doy),]
-
-data6$leadlag <- ifelse(data6$peak==1 & data6$growthphase=="positive", -data6$lead,
-                        ifelse(data6$peak==1 & data6$growthphase=="negative", data6$lag, NA))
-
-
-# group lead/lag times into chunks of 1 month
-data6$month <- ifelse(data6$leadlag<=-90, "more than -90 days",
-                      ifelse(data6$leadlag>-90 & data6$leadlag<=-60,"-89 to -60 days",
-                             ifelse(data6$leadlag>-60 & data6$leadlag<=-30,"-59 to -30 days",
-                                    ifelse(data6$leadlag>-30 & data6$leadlag<=0,"-29 to 0 days",
-                                           ifelse(data6$leadlag>0 & data6$leadlag<=30,"1 to 30 days",
-                                                  ifelse(data6$leadlag>30 & data6$leadlag<=60,"31 to 60 days",
-                                                         ifelse(data6$leadlag>60,"more than 60 days",NA)))))))
-  
-saveRDS(data6, "output/data6.rds")
-
-
-# Results
-phaselengths <- data6 %>% dplyr::group_by(place) %>% 
-  dplyr::filter(growthphase=="positive") %>% 
-  dplyr::summarise(phaselength=n(), lat=lat[1])
-summary(phaselengths$phaselength)
-
-table(data6$growthphase[data6$peak==1])
-round(prop.table(table(data6$growthphase[data6$peak==1]))*100,2)
-
-summary(data6$leadlag[data6$peak==1 & !is.na(data6$peak)])
-summary(data6$leadlag[data6$growthphase=="positive" & data6$peak==1 & !is.na(data6$peak)])
-summary(data6$leadlag[data6$growthphase=="negative" & data6$peak==1 & !is.na(data6$peak)])
-
-#hist(data6$lag[data6$peak==1 & !is.na(data6$peak) & data6$growthphase=="negative"])
-#hist(data6$lead[data6$peak==1 & !is.na(data6$peak) & data6$growthphase=="negative"])
-
-prop.table(table(data6$month)) 
-chisq.test(unname(table(data6$month)), p=rep(1/7, 7))
-
-
-
-# Fig. S6  ==================================================================
-
-figS6 <- ggplot(data6, aes(x=leadlag)) +  theme_light() + 
-          geom_histogram(aes(y=..density..), bins=17, fill="grey80",color="white") +
-          xlab("Days since end of predicted positive growth phase") + 
-          geom_vline(xintercept=0, color="red") + geom_density() +
-  scale_y_continuous(expand=c(0,0))
-
-figS6
-
-tiff(file = paste0("output/figS6.tif"),
-     width = 2000,
-     height = 2000,
-     res = 300)
-figS6
-dev.off()
-
-
-# Fig. 5  ==================================================================
-
-breaksx <- c(1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335)
-data6$y <- as.numeric(factor(data6$place, levels=unique(data6$place[order(data6$lat)])))
-labels <- sort(unique(factor(data6$place, levels=unique(data6$place[order(data6$lat)]))))
-
-fig5 <- ggplot(data6) + 
-        geom_tile(aes(x=doy, y=y, fill=growthphase)) +
-        geom_point(data=data6[data6$peak==1,], aes(x=doy, y=y)) +
-        ylab(NULL) + xlab(NULL) + 
-        geom_vline(xintercept=breaksx[2:12], color="white") +
-        scale_y_continuous(expand=c(0,0),
-                           breaks=1:length(labels),
-                           labels=labels)+
-        scale_x_continuous(breaks=breaksx,
-                           labels=month.abb[1:12],
-                           expand=c(0,0)) + 
-        labs(fill="predicted epidemic growth phase") + #scale_fill_brewer(palette="Reds")
-        scale_fill_manual(values=c("grey85", "maroon1")) + 
-        theme(axis.text.x = element_text(hjust=-0.5), 
-              axis.ticks.x=element_blank())
-fig5
-
-tiff(file = paste0("output/fig5.tif"),
-     width = 3500,
-     height = 3500,
-     res = 300)
-fig5
-dev.off()
 
 
 
@@ -1013,7 +883,7 @@ cairo$temphistpred <- predict(lm(temphist ~ sin(2*pi/365*doy) + cos(2*pi/365*doy
                                   data=cairo),
                                 newdata=data.frame("doy"=c(1:nrow(cairo))))
 
-# calculate difference between predicten from CRU data and predicted from actual data
+# calculate difference between predicted from CRU data and predicted from actual data
 cairo$diff <- cairo$temphistpred-cairo$tempCRUpred
 hist(cairo$diff)
 summary(cairo$diff)
