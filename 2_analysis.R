@@ -853,8 +853,8 @@ figS6c
 
 # combine plot
 tiff(file = paste0("output/figS6.tif"),
-     width = 5000,
-     height = 1500,
+     width = 3000,
+     height = 2700,
      res = 300)
 grid.arrange(arrangeGrob(figS6a, top=textGrob("A", x=unit(0, "npc"), y=unit(0, "npc"), 
                                              just=c("left", "top"), gp=gpar(col="black",fontsize=fignosize))), 
@@ -862,7 +862,7 @@ grid.arrange(arrangeGrob(figS6a, top=textGrob("A", x=unit(0, "npc"), y=unit(0, "
                                              just=c("left", "top"), gp=gpar(col="black", fontsize=fignosize))),
              arrangeGrob(figS6c, top=textGrob("C", x=unit(0, "npc"), y=unit(0, "npc"), 
                                               just=c("left", "top"), gp=gpar(col="black", fontsize=fignosize))),
-             ncol=3)
+             layout_matrix=rbind(c(1, NA), c(2,3)))
 dev.off()
 
 
