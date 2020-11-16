@@ -4,7 +4,7 @@
 # Author: Fabienne Krauer, University of Oslo
 # Contact: fabienne.krauer@ibv.uio.no
 # Created: 12.12.2019
-# Last updated: 15.06.2020
+# Last updated: 03.11.2020
 
 
 
@@ -24,6 +24,7 @@ library(gridExtra)
 library(ggridges)
 library(ggrepel)
 library(MASS)
+library(viridis)
 
 Sys.setlocale("LC_TIME", "English")
 
@@ -34,7 +35,6 @@ rawdata <- readRDS("output/rawdata.rds")
 monthly <- readRDS("output/data_all_monthly.rds")
 weekly <- readRDS("output/data_all_weekly.rds")
 climate <- readRDS("output/climate.rds")
-
 
 
 ## 1 Description of data --------------------------------------------------------
@@ -53,7 +53,6 @@ round(prop.table(table(rawdata$interval[rawdata$obs==1 & rawdata$type=="plague m
 round(prop.table(table(rawdata$interval[rawdata$obs==1 & rawdata$type=="all-cause mortality"]))*100,1)
 round(prop.table(table(rawdata$interval[rawdata$obs==1]))*100,1)
 
-
 # Locations and country
 metadata %>% dplyr::group_by(type) %>% dplyr::summarise(nlocations=length(unique(place)))
 moo <- metadata %>% dplyr::group_by(type, country) %>% dplyr::summarise(n=n())
@@ -69,15 +68,21 @@ round(prop.table(table(metadata$century[metadata$type=="all-cause mortality"]))*
 table(metadata$century)
 round(prop.table(table(metadata$century))*100,1)
 
-# Duration, peak sizes and cumulative sizes
-summary(monthly$duration[monthly$obs==1 & monthly$type=="plague mortality"])
-summary(weekly$duration[weekly$obs==1 & weekly$type=="plague mortality"])/7
-summary(monthly$ncumul[monthly$obs==1 & monthly$type=="plague mortality"])
-summary(monthly$npeak[monthly$obs==1 & monthly$type=="plague mortality"])
-summary(weekly$npeak[weekly$obs==1 & weekly$type=="plague mortality"])
+# Summary of duration, peak sizes and cumulative sizes
+summary <- monthly[monthly$obs==1 & monthly$type=="plague mortality" & monthly$values=="counts",]
+summary(summary$duration)
+summary(summary$ncumul)
+summary(summary$npeak)
+
+summary(weekly$duration[weekly$obs==1 & weekly$type=="plague mortality" & weekly$values=="counts"])/7
+summary(weekly$npeak[weekly$obs==1 & weekly$type=="plague mortality" & weekly$values=="counts"])
+
+summary(summary$fs)
+cor(summary$fs[!is.na(summary$fs)], summary$population[!is.na(summary$fs)])
+cor(summary$fs[!is.na(summary$fs)], summary$year[!is.na(summary$fs)])
 
 
-# Fig. S1 ==================================================================
+# Fig. S1 Map ==================================================================
 mapdata <- rawdata[rawdata$peakobs==1,c("peakid", "place", "country", "lat", "lon", "type")]
 mapdata <- mapdata %>% dplyr::group_by(lat, lon, type) %>% dplyr::summarise(n=n(), place=place[1], country=country[1])
 map <- map_data("world")
@@ -101,12 +106,12 @@ tiff(file = paste0("output/figS1.tif"),
        width = 2500,
        height = 2000,
        res = 300)
-fig1
+figS1
 dev.off()
 
 
-# Fig. S2  ==================================================================
-# all epi curves
+# Fig. S2 Epi curves ==================================================================
+
 rawdata <- rawdata %>% dplyr::group_by(peakid) %>% 
   dplyr::mutate(peaklabel=ifelse(year[1]==year[n()],
                                  paste(place, year[1], sep=" "),
@@ -152,54 +157,66 @@ ggsave("output/figS2.pdf",
        width=20, height = 100, limitsize = F)
 
 
+# Fig. S3 Attack rates ==================================================================
+
+figS3 <- ggplot(summary) + theme_bw() +
+  geom_point(aes(x=population, y=fs, color=year)) +
+  ylab("proportion infected (attack rate)") + xlab("initial population size")
+
+tiff(file = paste0("output/figS3.tif"),
+     width = 1500,
+     height = 1200,
+     res = 300)
+figS3
+dev.off()
+
 
 ## 2. Analysis  --------------------------------------------------------------
 
 # 2.1 Assessment of seasonality  --------------------------------------------------------------
-data0 <- monthly[monthly$type=="plague mortality" & monthly$complete=="yes" & monthly$values=="counts",
+data <- monthly[monthly$type=="plague mortality" & monthly$complete=="yes" & monthly$values=="counts",
                  c("id", "peakid", "place", "country", "month", "population", "lat", "lon", "n", "values")]
 
-data0 <- data0 %>% dplyr::group_by(place) %>% dplyr::mutate(noutbreaks=length(unique(peakid)))
-data0 <- data0[data0$noutbreaks>3,]
-data0$month <- factor(data0$month, labels=month.abb[1:12])
+data <- data %>% dplyr::group_by(place) %>% dplyr::mutate(noutbreaks=length(unique(peakid)))
+data <- data[data$noutbreaks>3,]
+data$month <- factor(data$month, labels=month.abb[1:12])
 
-places <- sort(unique(data0$place))
+places <- sort(unique(data$place))
 
-# Fig. 1  ==================================================================
+# Fig. 1 Boxplots ==================================================================
 
-fig1 <- vector("list", length(unique(data0$place)))
+fig1 <- vector("list", length(unique(data$place)))
 ylims <- c(350, 2000, 1000, 2000, 250)
 names(ylims) <- places
 
 for (i in places) {
-  subset <- data0[data0$place==i,]
+  subset <- data[data$place==i,]
   plot <- ggplot(subset) + theme_minimal() + ggtitle(subset$place[[1]]) +
                                   geom_boxplot(aes(x=month, y=n), stat="boxplot") +
-                                  #scale_x_discrete(labels=month.abb[1:12]) +
                                   coord_cartesian(ylim=c(0, ylims[[i]])) +
                                   xlab(NULL) + ylab("monthly plague deaths")
   
   fig1[[which(places==i)]] <- ggplotGrob(plot)
 }
+
 tiff(file = paste0("output/fig1.tif"),
-     width = 3000,
-     height = 3000,
+     width = 3200,
+     height = 1700,
      res = 300)
-grid.arrange(arrangeGrob(grobs=fig1, ncol=2))
+grid.arrange(arrangeGrob(grobs=fig1, ncol=3))
 dev.off()
 
 
-
 # Regression model for season
-data0 <- data0 %>% dplyr::mutate(season=ifelse(month %in% c("Dec", "Jan", "Feb"), 1, 
+data <- data %>% dplyr::mutate(season=ifelse(month %in% c("Dec", "Jan", "Feb"), 1, 
                                                       ifelse(month %in% c("Mar", "Apr", "May"), 2,
                                                              ifelse(month %in% c("Jun", "Jul", "Aug"), 3, 4))))
-data0$season <- factor(data0$season, labels=c("winter", "spring", "summer", "autumn"))
+data$season <- factor(data$season, labels=c("winter", "spring", "summer", "autumn"))
  
 models0 <- vector("list", length(places))
 lrtests <- c()
 for (i in places) {
-  subset <- data0[data0$place==i,]
+  subset <- data[data$place==i,]
   
   model <- glm.nb(formula=n ~ season + offset(log(population)), data=subset)
   modelnull <- glm.nb(formula=n ~ offset(log(population)), data=subset) # Compare to null model
@@ -229,6 +246,37 @@ models0
 
 
 ## 2.2 Seasonal peak timing --------------------------------------------------------------
+
+# Calculate AAP for all plague cases
+data0 <- monthly[monthly$type=="plague mortality" & monthly$complete=="yes",
+                 c("place", "peakid", "month", "year", "n", "lat")]
+data0 <- data0 %>% dplyr::group_by(place, month) %>% 
+  dplyr::summarise(n=mean(n), lat=lat[1])
+data0 <- merge(data0, data.frame(place=rep(unique(data0$place), 12),
+                                 month=rep(1:12, each=length(unique(data0$place)))),
+               by=c("place", "month"), all=T)
+data0$n <- ifelse(is.na(data0$n), 0, data0$n)
+data0 <- data0 %>% dplyr::group_by(place) %>% 
+  dplyr::mutate(lat=max(lat, na.rm=T),
+        aap=n*100/sum(n))
+
+# Fig. 2 AAP ======================================================
+fig2 <- ggplot(data0) + theme_minimal() +
+  geom_tile(aes(x=month, y=reorder(place, lat), fill=aap)) +
+  scale_x_continuous(expand=c(0,0),
+                     breaks=1:12,
+                     labels=month.abb[1:12]) + 
+  xlab(NULL) + ylab(NULL) + #guides(fill=) +
+  scale_fill_viridis(name="AAP (% deaths)")
+
+
+tiff(file = paste0("output/fig2.tif"),
+     width = 1800,
+     height = 1200,
+     res = 300)
+fig2
+dev.off()
+
 
 # Function to calculate marginal R2 for the GEE model 
 # from: https://onlinelibrary.wiley.com/doi/epdf/10.1002/%28SICI%291097-0258%2820000530%2919%3A10%3C1265%3A%3AAID-SIM486%3E3.0.CO%3B2-U
@@ -270,39 +318,34 @@ data1 <- merge(data1, climate$precmean, by="place", all.x=T)
 data1 <- data1[order(data1$place),]
 data1$place <- as.factor(data1$place)
 
-# Fit models
+cor(data1$tmean, data1$lat)
+cor(data1$precmean, data1$lat)
 
+##  Fit regression models
 length(unique(data1$place))
 foo <- data1 %>% dplyr::group_by(place) %>% dplyr::summarise(noutbreaks=n())
 prop.table(table(foo$noutbreaks))
 summary(data1$woy)
 
-
-## annual mean temperature
+# annual mean temperature
 model1 <- geeglm(woy ~ tmean, id=place, data=data1, family="gaussian", corstr = "exchangeable")
 model1pred <- predictGEE(model1)
 summary(model1)
 r2marg(model1)
 
-## annual mean precipitation
+# annual mean precipitation
 model2 <- geeglm(woy ~ precmean, id=place, data=data1, family="gaussian", corstr = "exchangeable")
 model2pred <- predictGEE(model2)
 summary(model2)
 r2marg(model2)
 
-## latitude
-model3 <- geeglm(woy ~ lat, id=place, data=data1, family="gaussian", corstr = "exchangeable")
-model3pred <- predictGEE(model3)
-summary(model3)
-r2marg(model3)
-
-
+# Temperature and precipitation
 model1_1 <- geeglm(woy ~ tmean + precmean, id=place, data=data1, family="gaussian", corstr = "exchangeable")
 r2marg(model1_1)
 
 
-# Fig. 2  ==================================================================
-fig2a <- ggplot(model1pred) + 
+# Fig. 3 Peak timing ==================================================================
+fig3a <- ggplot(model1pred) + 
   theme_light() +
   geom_point(aes(x=tmean, y=woy)) + 
   geom_line(aes(x=tmean, y=fit), color="gray20") +
@@ -311,9 +354,9 @@ fig2a <- ggplot(model1pred) +
         axis.ticks.x=element_blank()) + 
   ylab("calendar week of epidemic peak") + xlab("annual mean temperature (°C)") 
 
-fig2a
+fig3a
 
-fig2b <- ggplot(model2pred) +
+fig3b <- ggplot(model2pred) +
   theme_light() +
   geom_point(aes(x=precmean, y=woy)) + 
   geom_line(aes(x=precmean, y=fit), color="gray20") +
@@ -321,55 +364,21 @@ fig2b <- ggplot(model2pred) +
   guides(size = guide_legend(title.position = "top", title="Peak size", title.hjust=1)) +
   theme(panel.grid.minor.x = element_blank(),
         axis.ticks.x=element_blank())  + labs(size="Peak size") +
-  ylab("calendar week of epidemic peak") + xlab("annual average precipitation (mm)") 
-fig2b
+  ylab("calendar week of epidemic peak") + xlab("annual mean precipitation (mm)") 
+fig3b
 
-fig2c <- ggplot(model3pred) +
-  theme_light() +
-  geom_point(aes(x=lat, y=woy)) + 
-  geom_line(aes(x=lat, y=fit), color="gray20") +
-  geom_ribbon(aes(x=lat, ymin=low95CI, ymax=up95CI), fill="gray20", alpha=0.3) +
-  theme(panel.grid.minor.x = element_blank(),
-        axis.ticks.x=element_blank())  + labs(size="Peak size") +
-  ylab("calendar week of epidemic peak") + xlab("latitude (° North)") 
-fig2c
 
-tiff(file = paste0("output/fig2.tif"),
+tiff(file = paste0("output/fig3.tif"),
      width = 3000,
      height = 1200,
      res = 300)
-grid.arrange(arrangeGrob(fig2a, top=textGrob("A", x=unit(0, "npc"), y=unit(0, "npc"), 
+grid.arrange(arrangeGrob(fig3a, top=textGrob("A", x=unit(0, "npc"), y=unit(0, "npc"), 
                                              just=c("left", "top"), gp=gpar(col="black", fontsize=fignosize))), 
-             arrangeGrob(fig2b, top=textGrob("B", x=unit(0, "npc"), y=unit(0, "npc"), 
+             arrangeGrob(fig3b, top=textGrob("B", x=unit(0, "npc"), y=unit(0, "npc"), 
                                              just=c("left", "top"), gp=gpar(col="black",fontsize=fignosize))),
-             arrangeGrob(fig2c, top=textGrob("C", x=unit(0, "npc"), y=unit(0, "npc"), 
-                                             just=c("left", "top"), gp=gpar(col="black",fontsize=fignosize))),
-             
-             ncol=3)
+          
+             ncol=2)
 dev.off()
-
-
-
-# Fig. S3  ==================================================================
-
-# Ridge plot: weekly by latitude
-figS3 <- ggplot(weekly[weekly$type=="plague mortality",], aes(x = woy, y = lat, group=as.factor(peakid), fill=as.factor(place))) + 
-              geom_density_ridges(aes(height=nnorm), stat="identity", alpha=0.5, color=NA) +
-              scale_x_continuous(expand = c(0,0)) + 
-              theme_ridges(center_axis_labels = T, font_size = 10) + 
-              xlab("Week of the year") +
-              ylab("Latitude (° N)") + labs(fill="Place") + guides(fill=guide_legend(ncol=1)) +
-              coord_cartesian(clip = "off")
-        
-figS3
-
-tiff(file = paste0("output/figS3.tif"),
-     width = 2500,
-     height = 2500,
-     res = 300)
-figS3
-dev.off()
-
 
 ## 2.3 Seasonal peak timing sensitivity analysis --------------------------------------------------------------
 
@@ -418,7 +427,8 @@ r2marg(model7)
 
 
 
-# Fig. S4  ==================================================================
+# Fig. S4 Peak timing ==================================================================
+
 figS4a <- ggplot(model4pred) +
   theme_light() + 
   geom_point(aes(x=tmean, y=month)) + 
@@ -464,8 +474,8 @@ figS4d
 
 
 tiff(file = paste0("output/figS4.tif"),
-     width = 3000,
-     height = 3000,
+     width = 2500,
+     height = 2500,
      res = 300)
 grid.arrange(arrangeGrob(figS4a, top=textGrob("A", x=unit(0, "npc"), y=unit(0, "npc"), 
                                              just=c("left", "top"), gp=gpar(col="black", fontsize=fignosize))), 
@@ -589,16 +599,17 @@ prec <- climate$precpred
 prec <- prec[prec$place %in% unique(data5$place),]
 data5 <- merge(data5, prec, by=c("place", "doy"), all=T)
 data5 <- data5[!is.na(data5$id),]
-
+data5 <- data5[!is.na(data5$r),]
 
 saveRDS(data5, "output/data5.rds")
 
 
 
-# Fig. S5  ==================================================================
+# Fig. S5 Epidemic growth  ==================================================================
 
 # Plot time-varying growth rate for each epidemic
-peakids <- sort(unique(data5$peakid))
+data5 <- data5[order(data5$place, data5$year, data$time),]
+peakids <- unique(data5$peakid)
 figS5 <- vector("list", length(peakids))
 for (i in 1:length(peakids)) {
   
@@ -638,10 +649,8 @@ ggsave("output/figS5.pdf",
        grid.arrange(top=textGrob("\n Fig. S5. Epidemiological curves and the corresponding time-varying growth rates. The dark grey bars represent the incident plague mortality, the light grey \n bars represent the incident plague cases calculated from the mortality data. The red line and pink ribbon are the mean estimate and 95% CI for the time-varying \n epidemic growth rate calculate based on the incident case data (right y-axis). Values below 0 indicate no growth (i.e. a decline of the epidemic). The values on \n the right y-axis represent the daily growth rate. \n", 
                                  x=0, hjust=0, 
                                  gp=gpar(fontsize=20, font=1)), 
-                    arrangeGrob(grobs=figS5, ncol=4)), 
+                    arrangeGrob(grobs=figS4, ncol=4)), 
        width=20, height = 50, limitsize = F)
-
-
 
 
 # Results 
@@ -658,22 +667,67 @@ max(data5$temp)
 summary(data5$temp[data5$rmax==1])
 summary(data5$temp[data5$r>0])
 
-# Fit a GAM model
 
-# Using all available data
-model8 <- gam(r ~ s(temp, bs="tp"), data=data5[!is.na(data5$r),], family="gaussian", link="identity", methods="REML")
-summary(model8)
-coef(model8)
-plot(model8)
-gam.check(model8)
-AIC(model8)
-model8pred <- cbind(data5[!is.na(data5$r), c("id", "peakid", "place", "temp", "r")], predict(model8, se.fit=T))
+
+## Regression models ##
+
+## Fit a GAM model for temperature
+data5 <- data5[order(data5$peakid, data5$time),]
+
+# Fit simple gam model (fitted with GAMM to allow model comparison)
+model8a <- gamm(r ~ s(temp, bs="tp"), data=data5, 
+                family="gaussian", link="identity")
+
+summary(model8a$gam)
+
+# Check autocorrelation of residuals by peakid
+residuals <- cbind(data5[,c("peakid", "time", "temp", "r")], 
+                   residuals(model8a$lme, type="normalized"))
+for (i in sort(unique(residuals$peakid))) {
+  subset <- residuals[residuals$peakid==i,]
+  print(acf(subset$residuals))
+  
+}
+
+# --> some autocorrelation by peakid --> use AR1 error structure
+
+# 1) GAMM model with AR1, Using all available data
+model8 <- gamm(r ~ s(temp, bs="tp"),
+                corr=corAR1(form= ~1|peakid),
+                data=data5, family="gaussian", 
+                link="identity")
+
+summary(model8$gam)
+summary(model8$lme)
+
+# check diagnostics
+gam.check(model8$gam)
+
+# check autocorrelation of residuals in GAMM model by peakid
+residuals_gamm <- cbind(data5[,c("peakid", "time")], 
+                        "residuals"=residuals(model8$lme, type="normalized"))
+for (i in unique(residuals_gamm$peakid)) {
+  print(acf(residuals_gamm$residuals[residuals_gamm$peakid==i]))
+}
+
+# --> autocorrelation reduced for most outbreaks
+
+# compare model fits
+anova(model8a$lme, model8$lme)
+
+
+# predict
+model8pred <- cbind(data5[, c("id", "peakid", "place", "temp", "r")], 
+                     predict(model8$gam, se.fit=T))
 model8pred$low95CI <- model8pred$fit - 1.96*model8pred$se.fit
 model8pred$up95CI <- model8pred$fit + 1.96*model8pred$se.fit
-unique(model8pred$temp[model8pred$fit==max(model8pred$fit)])
+
+# temperature at which growth is maximum
+model8pred$temp[model8pred$fit==max(model8pred$fit)]
 
 # the min/max temperature at which predicted growth is positive
-min(model8pred$temp[model8pred$fit>0],na.rm=T)
+tmingrowth <- min(model8pred$temp[model8pred$fit>0],na.rm=T)
+tmingrowth
 min(model8pred$temp[model8pred$up95CI>0 & model8pred$temp>5],na.rm=T)
 min(model8pred$temp[model8pred$low95CI>0],na.rm=T)
 
@@ -681,194 +735,205 @@ max(model8pred$temp[model8pred$fit>0],na.rm=T)
 max(model8pred$temp[model8pred$low95CI>0],na.rm=T)
 max(model8pred$temp[model8pred$up95CI>0],na.rm=T)
 
-
-# check if a model with a random effect at outbreak level is better
-model8re <- gam(r ~ s(temp, bs="tp") + s(peakid, bs="re"), data=data5[!is.na(data5$r),], methods="REML")
-summary(model8re)
-AIC(model8, model8re) # no difference to model without random effect
-
-
-# compare to a linear model
-model8lin <- gam(r ~ temp, data=data5[!is.na(data5$r),], methods="REML")
-summary(model8lin)
-anova(model8, model8lin, test="Chisq") # GAM model is definitely the better fit
-AIC(model8, model8lin)
-
-# There is a lot of noise in the data, partly because some of the epi curves themselves are noisy.
-data5subset <- data5[data5$npeak>=500 & !is.na(data5$r),]
+# 2) Repeat the analysis using a subset of large outbreaks (> 500 at peak)
+data5subset <- data5[data5$npeak>=500,]
 min(data5subset$temp[data5subset$r>0])
 max(data5subset$temp[data5subset$r>0])
 
 # Using only large outbreaks
-model9 <- gam(r ~ s(temp, bs="tp"), data=data5subset, family="gaussian", link="identity", methods="REML")
-summary(model9)
-coef(model9)
-plot(model9)
-gam.check(model9)
-model9pred <- cbind(data5subset[, c("id", "peakid", "place", "temp", "r")], predict(model9, se.fit=T))
+model9 <- gamm(r ~ s(temp, bs="tp"), data=data5subset,
+               corr=corAR1(form= ~1|peakid),
+              family="gaussian", link="identity")
+
+summary(model9$gam)
+
+# check diagnostics
+gam.check(model9$gam)
+
+model9pred <- cbind(data5subset[, c("id", "peakid", "place", "temp", "r")], 
+                    predict(model9$gam, se.fit=T))
 model9pred$low95CI <- model9pred$fit - 1.96*model9pred$se.fit
 model9pred$up95CI <- model9pred$fit + 1.96*model9pred$se.fit
-unique(model9pred$temp[model9pred$fit==max(model9pred$fit)])
 
-# the min/max temperature at which predicted growth is positive
-min(model9pred$temp[model9pred$fit>0],na.rm=T)
-tempmin95CI <- min(model9pred$temp[model9pred$up95CI>0],na.rm=T)
-tempmin95CI
-min(model9pred$temp[model9pred$low95CI>0],na.rm=T)
-
-max(model9pred$temp[model9pred$fit>0],na.rm=T)
-max(model9pred$temp[model9pred$low95CI>0],na.rm=T)
-tempmax95CI <- max(model9pred$temp[model9pred$up95CI>0],na.rm=T)
-tempmax95CI
+# maximum growth
+model9pred$temp[model9pred$fit==max(model9pred$fit)]
 
 
-# Fig. 3  ==================================================================
-
-# all data
-
-# Histogram
-fig3a <- ggplot() +  theme_light() + #theme(panel.grid = element_blank()) +
-  geom_histogram(data=data5[data5$r>0,], aes(x=temp, y=..count.., fill="> 0"), bins=60) +
-  geom_histogram(data=data5[data5$r<=0,], aes(x=temp, y=-..count.. , fill="<=0"), bins=60) +
-  ylab("frequency") + xlab("temperature (°C)") + scale_fill_hue("Growth rates")
-fig3a
-
-# Fit
-fig3b <- ggplot(model8pred, aes(x=temp, y=r)) +
-  theme_light() +
-  geom_point(aes(color=place)) + 
-  #stat_smooth(method="gam", formula=y ~ s(x, bs=smoother), fill="grey50", color="grey40") +
-  geom_line(aes(x=temp, y=fit), color="red") +
-  geom_ribbon(aes(x=temp, ymin=low95CI, ymax=up95CI), fill="red", alpha=0.3) +
-  ylab("daily epidemic growth rate") + xlab("temperature (°C)") +
-  geom_hline(aes(yintercept=0))
-fig3b
-
-
-# Using only large outbreaks
-
-# Histogram
-fig3c <- ggplot() +  theme_light() + #theme(panel.grid = element_blank()) +
-  geom_histogram(data=data5subset[data5subset$r>0,], aes(x=temp, y=..count.., fill="> 0"), bins=60) +
-  geom_histogram(data=data5subset[data5subset$r<=0,], aes(x=temp, y=-..count.. , fill="<=0"), bins=60) +
-  ylab("frequency") + xlab("temperature (°C)") + scale_fill_hue("Growth rates")
-fig3c
-
-# Fit
-fig3d <- ggplot(model9pred, aes(x=temp, y=r)) +
-  theme_light() +
-  geom_point(aes(color=place)) + 
-  #stat_smooth(method="gam", formula=y ~ s(x, bs=smoother), fill="grey50", color="grey40") +
-  geom_line(aes(x=temp, y=fit), color="red") +
-  geom_ribbon(aes(x=temp, ymin=low95CI, ymax=up95CI), fill="red", alpha=0.3) +
-  ylab("daily epidemic growth rate") + xlab("temperature (°C)") +
-  geom_hline(aes(yintercept=0))
-fig3d
-
-
-
-# combine plot
-tiff(file = paste0("output/fig3.tif"),
-     width = 4000,
-     height = 3000,
-     res = 300)
-grid.arrange(arrangeGrob(fig3a, top=textGrob("A", x=unit(0, "npc"), y=unit(0, "npc"), 
-                                             just=c("left", "top"), gp=gpar(col="black",fontsize=fignosize))), 
-             arrangeGrob(fig3b, top=textGrob("B", x=unit(0, "npc"), y=unit(0, "npc"), 
-                                             just=c("left", "top"), gp=gpar(col="black", fontsize=fignosize))),
-             arrangeGrob(fig3c, top=textGrob("C", x=unit(0, "npc"), y=unit(0, "npc"), 
-                                             just=c("left", "top"), gp=gpar(col="black",fontsize=fignosize))),
-             arrangeGrob(fig3d, top=textGrob("D", x=unit(0, "npc"), y=unit(0, "npc"), 
-                                             just=c("left", "top"), gp=gpar(col="black",fontsize=fignosize))),
-             
-             ncol=2)
-dev.off()
-
-# Repeat the analysis with tmeperature Without London data
-model10 <- gam(r ~ s(temp, bs="tp"), data=data5[!is.na(data5$r) & data5$place!="London",], 
-               family="gaussian", link="identity", methods="REML")
-summary(model10)
-model10pred <- cbind(data5[!is.na(data5$r) & data5$place!="London",], predict(model10, se.fit=T))
+# 3) Repeat the analysis Without London data
+model10 <- gamm(r ~ s(temp, bs="tp"), data=data5[data5$place!="London",], 
+                corr=corAR1(form= ~1|peakid),
+                family="gaussian", link="identity")
+summary(model10$gam)
+model10pred <- cbind(data5[data5$place!="London",], 
+                     predict(model10$gam, se.fit=T))
 model10pred$low95CI <- model10pred$fit - 1.96*model10pred$se.fit
 model10pred$up95CI <- model10pred$fit + 1.96*model10pred$se.fit
+
+# maximum growth
 unique(model10pred$temp[model10pred$fit==max(model10pred$fit)])
 
+gam.check(model10$gam)
 
 
-# Repeate the analysis with precipitation: all data
-model8prec <- gam(r ~ s(prec, bs="tp"), 
-                  data=data5[!is.na(data5$r),],
-                  family="gaussian", link="identity", methods="REML")
-summary(model8prec)
-model8precpred <- cbind(data5[!is.na(data5$r), c("id", "peakid", "place", "prec", "r")], 
-                        predict(model8prec, se.fit=T))
+## Fit a GAM model for precipitation
+
+# 1) all data
+data5 <- data5[order(data5$prec),]
+
+model8prec <- gamm(r ~ s(prec, bs="tp"), 
+                  data=data5,
+                  corr=corAR1(form= ~1|peakid),
+                  family="gaussian", link="identity")
+summary(model8prec$gam)
+model8precpred <- cbind(data5[, c("id", "peakid", "place", "prec", "r")], 
+                        predict(model8prec$gam, se.fit=T))
 model8precpred$low95CI <- model8precpred$fit - 1.96*model8precpred$se.fit
 model8precpred$up95CI <- model8precpred$fit + 1.96*model8precpred$se.fit
 
 
-# Repeate the analysis with precipitation: without London
-model10prec <- gam(r ~ s(prec, bs="tp"), 
-                  data=data5[!is.na(data5$r) & data5$place!="London",], 
-                  family="gaussian", link="identity", methods="REML")
-summary(model10prec)
-model10precpred <- cbind(data5[!is.na(data5$r) & data5$place!="London",c("id", "peakid", "place", "prec", "r")], 
-                        predict(model10prec, se.fit=T))
+# 2) Without London
+model10prec <- gamm(r ~ s(prec, bs="tp"), 
+                   data=data5[data5$place!="London",],
+                   corr=corAR1(form= ~1|peakid),
+                   family="gaussian", link="identity")
+summary(model10prec$gam)
+model10precpred <- cbind(data5[data5$place!="London",c("id", "peakid", "place", "prec", "r")], 
+                         predict(model10prec$gam, se.fit=T))
 model10precpred$low95CI <- model10precpred$fit - 1.96*model10precpred$se.fit
 model10precpred$up95CI <- model10precpred$fit + 1.96*model10precpred$se.fit
 
 
+# Fig. 4 Epidemic growth by temperature ==================================================================
 
-# Fig. S6  ==================================================================
+# Histogram
+fig4a <- ggplot() +  theme_light() + #theme(panel.grid = element_blank()) +
+  geom_histogram(data=data5[data5$r>0,], aes(x=temp, y=..count.., fill="> 0"), bins=60) +
+  geom_histogram(data=data5[data5$r<=0,], aes(x=temp, y=-..count.. , fill="<=0"), bins=60) +
+  ylab("frequency") + xlab("temperature (°C)") + scale_fill_hue("Growth rates")
+fig4a
 
-figS6a <- ggplot(model10pred, aes(x=temp, y=r)) +
+# Fit
+fig4b <- ggplot(model8pred, aes(x=temp, y=r)) +
   theme_light() +
   geom_point(aes(color=place)) + 
   #stat_smooth(method="gam", formula=y ~ s(x, bs=smoother), fill="grey50", color="grey40") +
+  geom_line(aes(x=temp, y=fit), color="red") +
+  geom_ribbon(aes(x=temp, ymin=low95CI, ymax=up95CI), fill="red", alpha=0.3) +
+  ylab("daily epidemic growth rate") + xlab("temperature (°C)") +
+  geom_hline(aes(yintercept=0))
+
+fig4b
+
+# combine plot
+tiff(file = paste0("output/fig4.tif"),
+     width = 3600,
+     height = 1200,
+     res = 300)
+grid.arrange(arrangeGrob(fig4a, top=textGrob("A", x=unit(0, "npc"), y=unit(0, "npc"), 
+                                             just=c("left", "top"), gp=gpar(col="black",fontsize=fignosize))), 
+             arrangeGrob(fig4b, top=textGrob("B", x=unit(0, "npc"), y=unit(0, "npc"), 
+                                             just=c("left", "top"), gp=gpar(col="black", fontsize=fignosize))),
+           
+             ncol=2)
+dev.off()
+
+# Fig. S6 Sensitivity analysis, epidemic growth by temperature ==========================
+
+# Using only large outbreaks
+figS6a <- ggplot(model9pred, aes(x=temp, y=r)) +
+  theme_light() +
+  geom_point(aes(color=place)) + 
   geom_line(aes(x=temp, y=fit), color="red") +
   geom_ribbon(aes(x=temp, ymin=low95CI, ymax=up95CI), fill="red", alpha=0.3) +
   ylab("daily epidemic growth rate") + xlab("temperature (°C)") +
   geom_hline(aes(yintercept=0))
 figS6a
 
-
-figS6b <- ggplot(model8precpred, aes(x=prec, y=r)) +
+# Omitting London
+figS6b <- ggplot(model10pred, aes(x=temp, y=r)) +
   theme_light() +
   geom_point(aes(color=place)) + 
-  #stat_smooth(method="gam", formula=y ~ s(x, bs=smoother), fill="grey50", color="grey40") +
-  geom_line(aes(x=prec, y=fit), color="red") +
-  geom_ribbon(aes(x=prec, ymin=low95CI, ymax=up95CI), fill="red", alpha=0.3) +
-  ylab("daily epidemic growth rate") + xlab("Precipitation (mm)") +
+  geom_line(aes(x=temp, y=fit), color="red") +
+  geom_ribbon(aes(x=temp, ymin=low95CI, ymax=up95CI), fill="red", alpha=0.3) +
+  ylab("daily epidemic growth rate") + xlab("temperature (°C)") +
   geom_hline(aes(yintercept=0))
 figS6b
 
-figS6c <- ggplot(model10precpred, aes(x=prec, y=r)) +
-  theme_light() +
-  geom_point(aes(color=place)) + 
-  #stat_smooth(method="gam", formula=y ~ s(x, bs=smoother), fill="grey50", color="grey40") +
-  geom_line(aes(x=prec, y=fit), color="red") +
-  geom_ribbon(aes(x=prec, ymin=low95CI, ymax=up95CI), fill="red", alpha=0.3) +
-  ylab("daily epidemic growth rate") + xlab("Precipitation (mm)") +
-  geom_hline(aes(yintercept=0))
-figS6c
 
 # combine plot
 tiff(file = paste0("output/figS6.tif"),
-     width = 3000,
-     height = 2700,
+     width = 3600,
+     height = 1200,
      res = 300)
 grid.arrange(arrangeGrob(figS6a, top=textGrob("A", x=unit(0, "npc"), y=unit(0, "npc"), 
                                              just=c("left", "top"), gp=gpar(col="black",fontsize=fignosize))), 
              arrangeGrob(figS6b, top=textGrob("B", x=unit(0, "npc"), y=unit(0, "npc"), 
                                              just=c("left", "top"), gp=gpar(col="black", fontsize=fignosize))),
-             arrangeGrob(figS6c, top=textGrob("C", x=unit(0, "npc"), y=unit(0, "npc"), 
-                                              just=c("left", "top"), gp=gpar(col="black", fontsize=fignosize))),
-             layout_matrix=rbind(c(1, NA), c(2,3)))
+
+             ncol=2)
 dev.off()
 
 
 
+# Fig. S7 Epidemic growth by precipitation  ==================================================================
 
-## 2.5 Temperature data agreement ----------------------------------------------------------------------------------
+figS7a <- ggplot(model8precpred, aes(x=prec, y=r)) +
+  theme_light() +
+  geom_point(aes(color=place)) + 
+  geom_line(aes(x=prec, y=fit), color="red") +
+  geom_ribbon(aes(x=prec, ymin=low95CI, ymax=up95CI), fill="red", alpha=0.3) +
+  ylab("daily epidemic growth rate") + xlab("Precipitation (mm)") +
+  geom_hline(aes(yintercept=0))
+figS7a
+
+figS7b <- ggplot(model10precpred, aes(x=prec, y=r)) +
+  theme_light() +
+  geom_point(aes(color=place)) + 
+  geom_line(aes(x=prec, y=fit), color="red") +
+  geom_ribbon(aes(x=prec, ymin=low95CI, ymax=up95CI), fill="red", alpha=0.3) +
+  ylab("daily epidemic growth rate") + xlab("Precipitation (mm)") +
+  geom_hline(aes(yintercept=0))
+figS7b
+
+# combine plot
+tiff(file = paste0("output/figS7.tif"),
+     width = 3600,
+     height = 1200,
+     res = 300)
+grid.arrange(arrangeGrob(figS7a, top=textGrob("A", x=unit(0, "npc"), y=unit(0, "npc"), 
+                                             just=c("left", "top"), gp=gpar(col="black",fontsize=fignosize))), 
+             arrangeGrob(figS7b, top=textGrob("B", x=unit(0, "npc"), y=unit(0, "npc"), 
+                                             just=c("left", "top"), gp=gpar(col="black", fontsize=fignosize))),
+            ncol=2)
+dev.off()
+
+
+## Fig S8: tmean/threshold -----------------------------------------------
+data6 <- merge(climate$tempmean, climate$temppred, by="place", all=T)
+data6 <- merge(data6, metadata[,c("place", "lat")], by=c("place"), all=T)
+data6 <- data6[order(data6$place, data6$doy),]
+# mark temperature thresholds for positive growth (11.8°C)
+data6 <- data6 %>% dplyr::group_by(place) %>% 
+  dplyr::mutate(threshold=min(doy[temp>=tmingrowth], na.rm=T)) %>% 
+  dplyr::select(place, threshold, tmean, lat) %>% 
+  dplyr::slice(1)
+
+cor(data6$tmean, data6$threshold)
+
+figS8 <- ggplot(data6) + theme_light() +
+        geom_point(aes(threshold, tmean)) + 
+  xlab("First day of the year when temperature > 11.7°C") + 
+  ylab("Annual mean temperature (°C)")
+
+tiff(file = paste0("output/figS8.tif"),
+     width = 1200,
+     height = 1200,
+     res = 300)
+figS8
+dev.off()
+
+
+## 2.6 Temperature data agreement ----------------------------------------------------------------------------------
 
 # agreement of actual temperature with predicted temperature
 cairo <- read.delim("input/temp_cairo.txt", stringsAsFactors = F)
@@ -891,13 +956,12 @@ summary(cairo$diff)
 
 # Plot
 
-# Fig. S7  ==================================================================
+# Fig. S9 Cairo temp ==================================================================
 
 CRUcairodata <- climate$tempdata[climate$tempdata$place=="Cairo", c("doy", "temp")]
 
-
 breaksx <- c(1, 32, 60, 91, 121, 152)
-figS7 <- ggplot(cairo) + geom_point(aes(x=doy, y=temphist), color="red") + 
+figS9 <- ggplot(cairo) + geom_point(aes(x=doy, y=temphist), color="red") + 
   theme_minimal() + coord_cartesian(xlim=c(0,(nrow(cairo)+5))) +
   geom_point(data=CRUcairodata, aes(x=doy, y=temp), color="blue") +
           geom_line(aes(x=doy, y=temphistpred),color="red") +
@@ -910,13 +974,13 @@ figS7 <- ggplot(cairo) + geom_point(aes(x=doy, y=temphist), color="red") +
                 axis.ticks.x=element_blank(),
                 panel.grid.minor.x = element_blank()) 
         
-figS7
+figS9
 
-tiff(file = paste0("output/figS7.tif"),
-     width = 2000,
-     height = 2000,
+tiff(file = paste0("output/figS9.tif"),
+     width = 1400,
+     height = 1400,
      res = 300)
-figS7
+figS9
 dev.off()
 
 

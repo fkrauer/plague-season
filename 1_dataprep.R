@@ -4,7 +4,7 @@
 # Author: Fabienne Krauer, University of Oslo
 # Contact: fabienne.krauer@ibv.uio.no
 # Created: 12.12.2019
-# Last updated: 15.06.2020
+# Last updated: 27.10.2020
 
 
 
@@ -64,11 +64,13 @@ monthly <- rawdata %>% dplyr::group_by(peakid, month, year) %>%
 monthly <- monthly %>% dplyr::group_by(id)  %>% dplyr::arrange(obs) %>% dplyr::mutate(obs=1:n())
 monthly <- monthly %>% dplyr::group_by(peakid) %>% dplyr::arrange(peakobs) %>% dplyr::mutate(peakobs=1:n(), peak=ifelse(row_number()==min(which(n==max(n, na.rm=T))),1,0))
 
-# Calculate duration, cumulative and peak cases and final size
+# Calculate duration, cumulative and peak cases and final sizes
 monthly <- monthly %>% dplyr::group_by(id) %>% # calculate duration
   dplyr::mutate(duration=ifelse(type=="plague mortality" & complete=="yes", max(obs, na.rm=T), NA),
                 ncumul=ifelse(type=="plague mortality" & complete=="yes" & values=="counts", sum(n, na.rm=T), NA),
                 npeak=ifelse(values=="counts", max(n, na.rm=T), NA))
+monthly$fs <- (monthly$ncumul/0.66)/monthly$population
+monthly$fs <- ifelse(monthly$fs>1 & !is.na(monthly$fs),1,monthly$fs)
 saveRDS(monthly, "output/data_all_monthly.rds")
 
 
