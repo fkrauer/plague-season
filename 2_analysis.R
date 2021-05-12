@@ -260,9 +260,12 @@ data0 <- data0 %>% dplyr::group_by(place) %>%
   dplyr::mutate(lat=max(lat, na.rm=T),
         aap=n*100/sum(n))
 
+data0$label <- paste(data0$place, paste(round(data0$lat, 1), "° N", sep=""), sep=" ")
+
+
 # Fig. 2 AAP ======================================================
 fig2 <- ggplot(data0) + theme_minimal() +
-  geom_tile(aes(x=month, y=reorder(place, lat), fill=aap)) +
+  geom_tile(aes(x=month, y=reorder(label, lat), fill=aap)) +
   scale_x_continuous(expand=c(0,0),
                      breaks=1:12,
                      labels=month.abb[1:12]) + 
